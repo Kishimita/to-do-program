@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>To-Do App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>To-Do List</h1>
+    <div>
+        <label>Group: <input id="groupFilter" type="text"></label>
+        <label>Completed: 
+            <select id="completedFilter">
+                <option value="">Any</option>
+                <option value="true">Completed</option>
+                <option value="false">Not Completed</option>
+            </select>
+        </label>
+        <button onclick="loadTasks()">Filter</button>
+    </div>
+    <!-- Add the form here -->
+    <form id="addTaskForm">
+        <input type="number" id="userIdInput" placeholder="User ID" required>
+        <input type="text" id="groupInput" placeholder="Group" required>
+        <input type="text" id="descInput" placeholder="Description" required>
+        <label>
+            Completed:
+            <input type="checkbox" id="completedInput">
+        </label>
+        <button type="submit">Add Task</button>
+    </form>
+    <!-- End of form -->
+    <ul id="tasks"></ul>
+    <script src="app.js"></script>
+</body>
+</html>
+
