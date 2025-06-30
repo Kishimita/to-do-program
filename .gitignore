@@ -5,3 +5,8 @@
 # pythin cache files 
 __pycache__/
  
+# node modules
+node_modules/
+
+# Vite build output 
+frontend-vite/dist/
