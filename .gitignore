@@ -1,0 +1,7 @@
+# virtual envrionments 
+# Python virtual environments
+.to-do-venv/
+
+# pythin cache files 
+__pycache__/
+ 
