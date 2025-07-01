@@ -1,12 +1,18 @@
-# virtual envrionments 
-# Python virtual environments
+# Python
 .to-do-venv/
-
-# pythin cache files 
 __pycache__/
- 
-# node modules
-node_modules/
+*.pyc
 
-# Vite build output 
+# SQLite Database
+tasks.db
+*.db
+*.db-journal*
+
+# Frontend
+frontend-vite/node_modules/
 frontend-vite/dist/
+
+# OS / Editor specific
+.vscode/
+.idea/
+.DS_Store

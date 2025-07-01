@@ -69,6 +69,31 @@ ul#tasks {
   margin: 1rem 0;
   animation: fadeInOut 2s;
 }
+.delete-modal {
+  background: #fff3f3;
+  border: 1px solid #f00;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+.delete-modal button {
+  margin-right: 0.5rem;
+}
+.task-item.selected {
+  outline: 2px solid var(--primary);
+  background: rgba(0, 123, 255, 0.15); /* Light blue for light mode */
+}
+body.night .task-item.selected {
+  outline: 2px solid var(--primary);
+  background: rgba(187, 134, 252, 0.25); /* Soft purple for night mode */
+}
+.delete-x {
+  float: right;
+  margin-left: 1rem;
+  cursor: pointer;
+  font-weight: bold;
+  color: #d9534f;
+}
 @keyframes fadeInOut {
   0% { opacity: 0; }
   10% { opacity: 1; }
