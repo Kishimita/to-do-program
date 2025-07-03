@@ -2,20 +2,37 @@
   --bg: #f8f9fa;
   --text: #222;
   --primary: #007bff;
+  --primary-hover: #0056b3;
   --card: #fff;
+  --success: #28a745;
+  --danger: #d9534f;
+  --danger-bg: #fff3f3;
+  --danger-border: #f00;
+  --selection-bg: rgba(0, 123, 255, 0.15);
 }
-body.night {
+
+/* This is the line that was fixed */
+body.night-mode {
   --bg: #181a1b;
   --text: #eee;
   --primary: #bb86fc;
+  --primary-hover: #a362ff;
   --card: #23272b;
+  --success: #3ddc84;
+  --danger: #cf6679;
+  --danger-bg: #3b2227;
+  --danger-border: #cf6679;
+  --selection-bg: rgba(187, 134, 252, 0.25);
 }
+
 body {
   background: var(--bg);
   color: var(--text);
   margin: 0;
   font-family: Arial, sans-serif;
+  transition: background 0.3s, color 0.3s;
 }
+
 .App {
   max-width: 700px;
   margin: 2rem auto;
@@ -23,13 +40,17 @@ body {
   background: var(--card);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  transition: background 0.3s;
 }
+
 h1 {
   margin-top: 0;
 }
+
 label {
   margin-right: 1rem;
 }
+
 button {
   background: var(--primary);
   color: #fff;
@@ -40,60 +61,76 @@ button {
   cursor: pointer;
   transition: background 0.2s;
 }
+
 button:hover {
-  background: #0056b3;
+  background: var(--primary-hover);
 }
+
 form {
   margin: 1rem 0;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
+
 ul#tasks {
   list-style: none;
   padding: 0;
 }
+
 .task-item {
   background: var(--card);
   margin-bottom: 0.5rem;
   padding: 0.75rem 1rem;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  transition: background 0.3s;
+  transition: background 0.3s, outline 0.2s;
 }
+
 .notification {
-  background: #28a745;
+  background: var(--success);
   color: #fff;
   padding: 0.5rem 1rem;
   border-radius: 4px;
   margin: 1rem 0;
-  animation: fadeInOut 2s;
+  animation: fadeInOut 3s forwards;
 }
+
 .delete-modal {
-  background: #fff3f3;
-  border: 1px solid #f00;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   padding: 1rem;
   border-radius: 6px;
   margin-bottom: 1rem;
 }
+
 .delete-modal button {
   margin-right: 0.5rem;
 }
+
 .task-item.selected {
   outline: 2px solid var(--primary);
-  background: rgba(0, 123, 255, 0.15); /* Light blue for light mode */
+  background: var(--selection-bg);
 }
-body.night .task-item.selected {
-  outline: 2px solid var(--primary);
-  background: rgba(187, 134, 252, 0.25); /* Soft purple for night mode */
-}
-.delete-x {
+
+.selection-box {
   float: right;
   margin-left: 1rem;
   cursor: pointer;
   font-weight: bold;
-  color: #d9534f;
 }
+
+.task-status {
+  cursor: pointer;
+  user-select: none; /* Prevents selecting the emoji text on click */
+  display: inline-block; /* Ensures the transform works correctly */
+  transition: transform 0.2s ease; /* Adds a smooth animation */
+}
+
+.task-status:hover {
+  transform: scale(1.2); /* Makes the emoji 20% larger on hover */
+}
+
 @keyframes fadeInOut {
   0% { opacity: 0; }
   10% { opacity: 1; }

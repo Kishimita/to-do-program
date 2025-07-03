@@ -5,9 +5,10 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [desc, setDesc] = useState("");
   const [userId, setUserId] = useState("");
-  const [formGroup, setFormGroup] = useState("");
+  const [formCategory, setFormCategory] = useState("");
   const [formCompleted, setFormCompleted] = useState(false);
-  const [group, setGroup] = useState("");
+  const [formPercent, setFormPercent] = useState(0);
+  const [category, setCategory] = useState("");
   const [completed, setCompleted] = useState("");
   const [night, setNight] = useState(false);
   const [notification, setNotification] = useState("");
@@ -20,8 +21,12 @@ function App() {
 
   const loadTasks = async () => {
     let url = `http://127.0.0.1:8000/tasks?limit=100`;
-    if (group) url += `&group=${group}`;
-    if (completed !== "") url += `&completed=${completed}`;
+    if (category.trim()) {
+      url += `&category=${category.trim()}`;
+    }
+    if (completed !== "") {
+      url += `&completed=${completed}`;
+    }
     try {
       const response = await fetch(url);
       if (!response.ok) {
@@ -37,7 +42,7 @@ function App() {
 
   useEffect(() => {
     loadTasks();
-  }, []);
+  }, [completed, category]);
 
   const showNotification = (message) => {
     setNotification(message);
@@ -48,16 +53,17 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!desc.trim() || !userId.trim() || !formGroup.trim()) {
+    if (!desc.trim() || !userId.trim() || !formCategory.trim()) {
       showNotification("All fields are required.");
       return;
     }
 
     const newTask = {
       user_id: parseInt(userId, 10),
-      group: formGroup,
-      description: desc,
+      category: formCategory.trim(),
+      description: desc.trim(),
       completed: formCompleted,
+      percent_complete: formCompleted ? 100 : parseFloat(formPercent),
     };
 
     try {
@@ -71,11 +77,12 @@ function App() {
       }
       await response.json();
       showNotification("Task added successfully!");
-      loadTasks(); // Reload tasks to show the new one
+      loadTasks();
       setDesc("");
-      setFormGroup("");
+      setFormCategory("");
       setUserId("");
       setFormCompleted(false);
+      setFormPercent(0);
     } catch (error) {
       console.error("Error adding task:", error);
       showNotification("Error adding task.");
@@ -96,26 +103,43 @@ function App() {
       return;
     }
     try {
-      // We need to find the user_id for each task to pass to the backend
-      const tasksToDelete = selectedTasks.map((taskId) => {
-        const task = tasks.find((t) => t.id === taskId);
-        return fetch(
-          `http://127.0.0.1:8000/tasks/${taskId}?user_id=${task.user_id}`,
-          {
+      await Promise.all(
+        selectedTasks.map((taskId) =>
+          fetch(`http://127.0.0.1:8000/tasks/${taskId}`, {
             method: "DELETE",
-          }
-        );
-      });
-
-      await Promise.all(tasksToDelete);
-
+          })
+        )
+      );
       showNotification("Selected tasks deleted successfully.");
-      loadTasks(); // Refresh the list
-      setSelectedTasks([]); // Clear selection
-      setSelectionMode(false); // Exit selection mode
+      loadTasks();
+      setSelectedTasks([]);
+      setSelectionMode(false);
     } catch (error) {
       console.error("Error deleting tasks:", error);
       showNotification("Error deleting tasks.");
+    }
+  };
+
+  const handleToggleComplete = async (task) => {
+    // Only send the field that is actually changing
+    const updatedData = { completed: !task.completed };
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/tasks/${task.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedData), // Send only the changed data
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update task status");
+      }
+      
+      showNotification("Task status updated!");
+      loadTasks();
+    } catch (error) {
+      console.error("Error updating task:", error);
+      showNotification("Error updating task.");
     }
   };
 
@@ -129,18 +153,18 @@ function App() {
         style={{ marginLeft: "1rem" }}
         onClick={() => {
           setSelectionMode(!selectionMode);
-          setSelectedTasks([]); // Clear selections when toggling mode
+          setSelectedTasks([]);
         }}
       >
         {selectionMode ? "Cancel Selection" : "Select Tasks to Delete"}
       </button>
       <div>
         <label>
-          Group:{" "}
+          Category:{" "}
           <input
-            value={group}
-            onChange={(e) => setGroup(e.target.value)}
-            placeholder="Filter by Group"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="Filter by Category"
           />
         </label>
         <label>
@@ -154,7 +178,6 @@ function App() {
             <option value="false">Not Completed</option>
           </select>
         </label>
-        <button onClick={loadTasks}>Filter</button>
       </div>
       <form onSubmit={handleSubmit}>
         <input
@@ -166,9 +189,9 @@ function App() {
         />
         <input
           type="text"
-          value={formGroup}
-          onChange={(e) => setFormGroup(e.target.value)}
-          placeholder="Group"
+          value={formCategory}
+          onChange={(e) => setFormCategory(e.target.value)}
+          placeholder="Category"
           required
         />
         <input
@@ -178,12 +201,28 @@ function App() {
           placeholder="Description"
           required
         />
+        <input
+          type="number"
+          value={formPercent}
+          onChange={(e) => setFormPercent(e.target.value)}
+          placeholder="%"
+          min="0"
+          max="100"
+          disabled={formCompleted}
+          style={{ width: "80px" }}
+        />
         <label>
           Completed:
           <input
             type="checkbox"
             checked={formCompleted}
-            onChange={(e) => setFormCompleted(e.target.checked)}
+            onChange={(e) => {
+              const isChecked = e.target.checked;
+              setFormCompleted(isChecked);
+              if (isChecked) {
+                setFormPercent(100);
+              }
+            }}
           />
         </label>
         <button type="submit">Add Task</button>
@@ -192,7 +231,7 @@ function App() {
       {selectionMode && selectedTasks.length > 0 && (
         <button
           onClick={handleDeleteSelected}
-          style={{ margin: "1rem 0", background: "#d9534f" }}
+          style={{ margin: "1rem 0", background: "var(--danger)" }}
         >
           Delete Selected ({selectedTasks.length})
         </button>
@@ -209,14 +248,29 @@ function App() {
             }}
           >
             <span>
-              [{task.group}] {task.description} (User: {task.user_id}) -{" "}
-              {task.completed ? "✅" : "❌"}
+              [{task.category}] {task.description} ({(task.percent_complete ?? 0).toFixed(1)}%) -{" "}
+              <span
+                className="task-status"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleComplete(task);
+                }}
+              >
+                {task.completed ? "✅" : "❌"}
+              </span>
               <br />
               <small>
                 Added:{" "}
                 {task.created_at
                   ? new Date(task.created_at).toLocaleString()
                   : "N/A"}
+                {task.updated_at && (
+                  <>
+                    {" "}
+                    | Updated:{" "}
+                    {new Date(task.updated_at).toLocaleString()}
+                  </>
+                )}
                 {task.completed_at && (
                   <>
                     {" "}
@@ -236,7 +290,7 @@ function App() {
               <span
                 className="selection-box"
                 onClick={(e) => {
-                  e.stopPropagation(); // Prevent li's onClick from firing
+                  e.stopPropagation();
                   toggleTaskSelection(task.id);
                 }}
               >
