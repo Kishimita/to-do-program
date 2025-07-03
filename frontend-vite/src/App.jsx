@@ -9,26 +9,35 @@ function App() {
   const [formCompleted, setFormCompleted] = useState(false);
   const [formPercent, setFormPercent] = useState(0);
   const [category, setCategory] = useState("");
-  const [completed, setCompleted] = useState("");
+  const [completed, setCompleted] = useState(null);
   const [night, setNight] = useState(false);
   const [notification, setNotification] = useState("");
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState([]);
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   useEffect(() => {
     document.body.className = night ? "night-mode" : "light-mode";
   }, [night]);
 
   const loadTasks = async () => {
-    let url = `http://127.0.0.1:8000/tasks?limit=100`;
+    // Use URLSearchParams for a cleaner and safer way to build the URL
+    const params = new URLSearchParams({
+      sort_by: sortBy,
+      order: sortOrder,
+    });
+
     if (category.trim()) {
-      url += `&category=${category.trim()}`;
+      params.append("category", category.trim());
     }
-    if (completed !== "") {
-      url += `&completed=${completed}`;
+    if (completed !== null) {
+      params.append("completed", completed);
     }
+
     try {
-      const response = await fetch(url);
+      // Corrected: Use the single, powerful /tasks endpoint
+      const response = await fetch(`http://127.0.0.1:8000/tasks?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -42,7 +51,7 @@ function App() {
 
   useEffect(() => {
     loadTasks();
-  }, [completed, category]);
+  }, [completed, category, sortBy, sortOrder]);
 
   const showNotification = (message) => {
     setNotification(message);
@@ -121,20 +130,19 @@ function App() {
   };
 
   const handleToggleComplete = async (task) => {
-    // Only send the field that is actually changing
     const updatedData = { completed: !task.completed };
 
     try {
       const response = await fetch(`http://127.0.0.1:8000/tasks/${task.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedData), // Send only the changed data
+        body: JSON.stringify(updatedData),
       });
 
       if (!response.ok) {
         throw new Error("Failed to update task status");
       }
-      
+
       showNotification("Task status updated!");
       loadTasks();
     } catch (error) {
@@ -158,27 +166,55 @@ function App() {
       >
         {selectionMode ? "Cancel Selection" : "Select Tasks to Delete"}
       </button>
-      <div>
-        <label>
-          Category:{" "}
-          <input
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="Filter by Category"
-          />
-        </label>
-        <label>
-          Status:{" "}
-          <select
-            value={completed}
-            onChange={(e) => setCompleted(e.target.value)}
-          >
-            <option value="">Any</option>
-            <option value="true">Completed</option>
-            <option value="false">Not Completed</option>
-          </select>
-        </label>
+
+      <div className="controls-container">
+        <div className="filter-controls">
+          <label>
+            Filter Category:{" "}
+            <input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="Enter Category"
+            />
+          </label>
+          <label>
+            Filter Status:{" "}
+            <select
+              value={completed === null ? "" : String(completed)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "") {
+                  setCompleted(null);
+                } else {
+                  setCompleted(value === "true");
+                }
+              }}
+            >
+              <option value="">Any</option>
+              <option value="true">Completed</option>
+              <option value="false">Not Completed</option>
+            </select>
+          </label>
+        </div>
+        
+        <div className="sort-controls">
+          <label>
+            Sort By:{" "}
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="created_at">Date Created</option>
+              <option value="updated_at">Date Updated</option>
+            </select>
+          </label>
+          <label>
+            Order:{" "}
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </label>
+        </div>
       </div>
+
       <form onSubmit={handleSubmit}>
         <input
           type="number"
@@ -276,12 +312,6 @@ function App() {
                     {" "}
                     | Completed:{" "}
                     {new Date(task.completed_at).toLocaleString()}
-                  </>
-                )}
-                {task.deleted_at && (
-                  <>
-                    {" "}
-                    | Deleted: {new Date(task.deleted_at).toLocaleString()}
                   </>
                 )}
               </small>

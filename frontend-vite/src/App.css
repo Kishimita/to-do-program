@@ -9,6 +9,9 @@
   --danger-bg: #fff3f3;
   --danger-border: #f00;
   --selection-bg: rgba(0, 123, 255, 0.15);
+    /* Adding these two new variables for light mode */
+  --form-bg: #f1f3f5;
+  --border-color: #dee2e6;
 }
 
 /* This is the line that was fixed */
@@ -23,6 +26,9 @@ body.night-mode {
   --danger-bg: #3b2227;
   --danger-border: #cf6679;
   --selection-bg: rgba(187, 134, 252, 0.25);
+    /* Adding these two new variables for night mode */
+  --form-bg: #2c3034;
+  --border-color: #495057;
 }
 
 body {
@@ -129,6 +135,26 @@ ul#tasks {
 
 .task-status:hover {
   transform: scale(1.2); /* Makes the emoji 20% larger on hover */
+}
+
+
+.controls-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap; /* Allows controls to wrap on smaller screens */
+  gap: 20px; /* Space between filter and sort groups */
+  margin: 20px 0;
+  padding: 15px;
+  background-color: var(--form-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.filter-controls, .sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Space between labels and inputs */
 }
 
 @keyframes fadeInOut {

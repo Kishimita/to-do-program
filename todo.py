@@ -39,11 +39,10 @@ class Task(SQLModel, table=True):
     category: str
     description: str
     completed: bool = Field(default=False)
-    percent_complete: float = Field(default=0.0, ge=0, le=100) # new percent complete feature
+    percent_complete: float = Field(default=0.0, ge=0, le=100)
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = Field(default=None) # new updated task feature 
+    updated_at: Optional[datetime] = Field(default=None)
     completed_at: Optional[datetime] = Field(default=None)
-    deleted_at: Optional[datetime] = Field(default=None)
 
 # --- Pydantic Models for API data shapes ---
 
@@ -80,22 +79,19 @@ def on_startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allows all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"], # Allows all methods
-    allow_headers=["*"], # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- CRUD Endpoints using the database ---
 
-
 @app.post("/tasks", response_model=Task)
-def add_task(task_data: TaskCreate): # FIX: Use TaskCreate to correctly receive data
-    # If a task is created as 'completed', its percentage must be 100.
+def add_task(task_data: TaskCreate):
     if task_data.completed:
         task_data.percent_complete = 100.0
     
-    # Create a full Task DB model from the provided data
     new_task = Task.model_validate(task_data)
 
     with Session(engine) as session:
@@ -104,65 +100,102 @@ def add_task(task_data: TaskCreate): # FIX: Use TaskCreate to correctly receive 
         session.refresh(new_task)
         return new_task
 
+# This is the new, consolidated endpoint for getting tasks.
+# It replaces both the old list_tasks and sort_tasks functions.
 @app.get("/tasks", response_model=List[Task])
-def list_tasks(
+def get_tasks(
     skip: int = 0,
     limit: int = 100,
     category: Optional[str] = None,
-    completed: Optional[bool] = None
+    completed: Optional[bool] = None,
+    sort_by: Optional[str] = "created_at",
+    order: Optional[str] = "asc"
 ):
+    """
+    A single, powerful endpoint to get tasks.
+    Handles filtering by category and completion status, and sorting.
+    """
     with Session(engine) as session:
-        query = select(Task).where(Task.deleted_at == None)
-        if category is not None:
-            query = query.where(Task.category == category)
+        query = select(Task)
+
+        # Filtering
+        if category:
+            # Use ilike for case-insensitive partial matching
+            query = query.where(Task.category.ilike(f"%{category}%"))
         if completed is not None:
             query = query.where(Task.completed == completed)
-        tasks = session.exec(query.offset(skip).limit(limit)).all()
+
+        # Sorting
+        # Use getattr to safely get the column for sorting, default to created_at
+        sort_column = getattr(Task, sort_by, Task.created_at)
+        if order == "desc":
+            query = query.order_by(sort_column.desc())
+        else:
+            query = query.order_by(sort_column.asc())
+
+        # Pagination
+        query = query.offset(skip).limit(limit)
+        
+        tasks = session.exec(query).all()
         return tasks
+
+# --- Old list_tasks function, now commented out and replaced by the new get_tasks ---
+# @app.get("/tasks", response_model=List[Task])
+# def list_tasks(
+#     skip: int = 0,
+#     limit: int = 100,
+#     category: Optional[str] = None,
+#     completed: Optional[bool] = None
+# ):
+#     with Session(engine) as session:
+#         query = select(Task)
+#         if category is not None:
+#             query = query.where(Task.category == category)
+#         if completed is not None:
+#             query = query.where(Task.completed == completed)
+#         tasks = session.exec(query.offset(skip).limit(limit)).all()
+#         return tasks
     
 @app.get("/tasks/{task_id}", response_model=Task)
 def get_task(task_id: int):
     with Session(engine) as session:
         task = session.get(Task, task_id)
-        if not task or task.deleted_at is not None:
+        if not task:
             raise HTTPException(status_code=404, detail=f"Task with id {task_id} not found.")
         return task
     
 @app.get("/tasks/user/{user_id}", response_model=List[Task])
 def get_tasks_by_user(user_id: int):
     with Session(engine) as session:
-        tasks = session.exec(select(Task).where(Task.user_id == user_id, Task.deleted_at == None)).all()
+        tasks = session.exec(select(Task).where(Task.user_id == user_id)).all()
         return tasks
 
 @app.get("/tasks/grouped", response_model=Dict[int, List[Task]])
 def group_tasks_by_user():
-    with Session(engine) as session:
-        tasks = session.exec(select(Task).where(Task.deleted_at == None)).all()
-        grouped = defaultdict(list)
-        for task in tasks:
+    # Refactored to reuse the new get_tasks logic
+    all_tasks = get_tasks(limit=1000)
+    grouped = defaultdict(list)
+    for task in all_tasks:
+        if task.user_id is not None:
             grouped[task.user_id].append(task)
-        return grouped
+    return grouped
 
 @app.put("/tasks/{task_id}", response_model=Task)
-def update_task(task_id: int, task_update_data: TaskUpdate): # Use the new TaskUpdate model
+def update_task(task_id: int, task_update_data: TaskUpdate):
     with Session(engine) as session:
         task = session.get(Task, task_id)
-        if not task or task.deleted_at is not None:
+        if not task:
             raise HTTPException(status_code=404, detail=f"Task with id {task_id} not found.")
         
-        # Get the update data, excluding any fields that were not set
         update_data = task_update_data.model_dump(exclude_unset=True)
         
-        # Update the model with the new data
         for key, value in update_data.items():
             setattr(task, key, value)
 
-        # If task is marked as complete, force percentage to 100.
         if task.completed:
             task.percent_complete = 100.0
             if not task.completed_at:
                 task.completed_at = datetime.now()
-        # If task is marked as not complete, clear the completed_at timestamp.
         else:
             task.completed_at = None
         
@@ -180,13 +213,34 @@ def delete_task(task_id: int):
         if not task:
             raise HTTPException(status_code=404, detail=f"Task with id {task_id} not found.")
         
-        # Soft delete by setting the deleted_at timestamp
-        task.deleted_at = datetime.now()
-        session.add(task)
+        session.delete(task)
         session.commit()
-        session.refresh(task)
         
-        return {"message": f"Task {task_id} marked as deleted."}
+        return {"message": f"Task {task_id} has been permanently deleted."}
+
+# --- Old sort_tasks function, now commented out and replaced by the new get_tasks ---
+# @app.get("/tasks/sorted", response_model=List[Task])
+# def sort_tasks(
+#     user_id: Optional[int] = None,
+#     category: Optional[str] = None,
+#     completed: Optional[bool] = None,
+#     sort_by: Optional[str] = "created_at",
+#     order: Optional[str] = "asc"
+# ):
+#     with Session(engine) as session:
+#         query = select(Task)
+#         if user_id is not None:
+#             query = query.where(Task.user_id == user_id)
+#         if category is not None:
+#             query = query.where(Task.category == category)
+#         if completed is not None:
+#             query = query.where(Task.completed == completed)
+#         if sort_by == "created_at":
+#             query = query.order_by(Task.created_at.asc() if order == "asc" else Task.created_at.desc())
+#         elif sort_by == "updated_at":
+#             query = query.order_by(Task.updated_at.asc() if order == "asc" else Task.updated_at.desc())
+#         tasks = session.exec(query).all()
+#         return tasks
 
 """To-do 
 
@@ -196,8 +250,10 @@ From a quick overview:
 [x] Allow user to mark task as completed with a toggle button, similar to the delete button
 [x] Since you update tasks, an updated_at column would actually be extremely 
 helpful to a user.
-[] For a realistic setup, the delete_at stuff should be gone and the task should actually be deleted. (Pin on this)
-[] It seems to me that group_task_by_user should make use of list_tasks 
+
+
+[x] For a realistic setup, the delete_at stuff should be gone and the task should actually be deleted. (Pin on this)
+[x] It seems to me that group_task_by_user should make use of list_tasks 
 instead.
 [] Searching can go from simple key word search to 
 something like rank search, semantic search, etc.
